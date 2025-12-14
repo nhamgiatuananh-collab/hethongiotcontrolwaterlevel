@@ -14,40 +14,34 @@ import atexit
 from flask import Flask, request
 import logging
 
-# Tắt log thừa của Flask để đỡ rối mắt
+
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-# ==========================================
-# ⚙️ CẤU HÌNH HỆ THỐNG
-# ==========================================
 
-# 1. Cấu hình Ngrok
+
 NGROK_AUTH_TOKEN = "36pW7wOKNSUtDvGZ5ZSZUSQxsKq_64Weo7fdSWzmauvyNNL6t"
 NGROK_DOMAIN     = "tiara-complaisant-healingly.ngrok-free.dev"
 
-# 2. Cấu hình Email
+
 EMAIL_SENDER     = "kaitokidbaralic123@gmail.com"
 EMAIL_PASSWORD   = "fhol dtxe pxxe xnng"
 EMAIL_ADMIN      = "kaitokidbaralic123@gmail.com"
 
-# 3. Cấu hình Camera (KHÔI PHỤC CODE CŨ)
+
 RESOLUTION = (640, 480)
 FRAMERATE  = 15 
 
-# Biến lưu mã OTP
 otp_storage = {}
 
-# Biến toàn cục lưu trạng thái lửa
+
 fire_status_global = {
     "status": "AN TOAN",
     "color": "#10b981", # Xanh lá
     "last_update": time.time()
 }
 
-# ==========================================
-# 0. MODULE NHẬN DỮ LIỆU TỪ ESP32 (FLASK)
-# ==========================================
+
 app_flask = Flask(__name__)
 
 @app_flask.route('/update', methods=['GET'])
@@ -55,7 +49,7 @@ def update_sensor():
     global fire_status_global
     canhbao = request.args.get('canhbao', default='0', type=str)
     
-    # Logic cập nhật trạng thái
+   
     if canhbao == '1':
         fire_status_global["status"] = "CÓ CHÁY !!!"
         fire_status_global["color"] = "#ef4444" # Đỏ rực
@@ -72,12 +66,10 @@ def run_flask_server():
     print("🔥 Server cảm biến lửa đang chạy (Port 5000)...")
     app_flask.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
 
-# Chạy Flask ở luồng riêng (Daemon Thread)
+
 threading.Thread(target=run_flask_server, daemon=True).start()
 
-# ==========================================
-# 1. MODULE KẾT NỐI NGROK (KHÔI PHỤC)
-# ==========================================
+
 def start_ngrok():
     print("🌍 Đang khởi tạo đường hầm Ngrok...")
     if "DÁN_MÃ" in NGROK_AUTH_TOKEN:
@@ -94,9 +86,7 @@ def start_ngrok():
         print(f"❌ Lỗi Ngrok: {e}")
         return None
 
-# ==========================================
-# 2. MODULE CAMERA (KHÔI PHỤC NGUYÊN BẢN)
-# ==========================================
+
 picam2 = None
 
 def init_camera():
@@ -105,13 +95,12 @@ def init_camera():
         print("📷 Đang khởi động Camera (Chế độ Manual)...")
         picam2 = Picamera2()
         
-        # Cấu hình độ phân giải
+      
         config = picam2.create_preview_configuration(main={"size": RESOLUTION, "format": "RGB888"})
         picam2.configure(config)
         picam2.start()
         
-        # --- KHÔI PHỤC PHẦN CẤU HÌNH BỊ THIẾU ---
-        # Đây là phần quan trọng để Cam chạy mượt ở 15FPS mà code tối ưu đã bỏ qua
+       
         try:
             picam2.set_controls({
                 "FrameDurationLimits": (int(1000000 / FRAMERATE), int(1000000 / FRAMERATE)),
@@ -129,7 +118,7 @@ def init_camera():
         print(f"⚠️ Cảnh báo Camera: {e}")
         picam2 = None
 
-# Gọi khởi động camera
+
 init_camera()
 
 def cleanup_camera():
@@ -163,9 +152,7 @@ def stream_loop():
         # Giữ nguyên tốc độ frame như code cũ
         time.sleep(1.0 / FRAMERATE)
 
-# ==========================================
-# 3. MODULE GỬI EMAIL & OTP (KHÔI PHỤC)
-# ==========================================
+
 def send_email_generic(to_email, subject, body):
     if "your_email" in EMAIL_SENDER: return False
     try:
@@ -205,9 +192,7 @@ def notify_admin_login(user_email, request: gr.Request):
     body = f"User: {user_email}\nIP: {client_ip}\nTime: {datetime.now()}"
     threading.Thread(target=send_email_generic, args=(EMAIL_ADMIN, subject, body)).start()
 
-# ==========================================
-# 4. LOGIC ĐĂNG NHẬP
-# ==========================================
+
 def verify_login(user_email, input_otp, request: gr.Request):
     if user_email not in otp_storage:
         return gr.update(visible=True), gr.update(visible=False), "❌ Email chưa yêu cầu OTP."
@@ -219,8 +204,7 @@ def verify_login(user_email, input_otp, request: gr.Request):
     else:
         return gr.update(visible=True), gr.update(visible=False), "❌ Mã OTP sai."
 
-# Hàm cập nhật trạng thái lửa cho giao diện
-# Dùng generator (while True + yield) để tương thích với bản Gradio cũ
+
 def check_fire_status():
     while True:
         status = fire_status_global["status"]
@@ -243,9 +227,7 @@ def check_fire_status():
         yield html_content
         time.sleep(1) # Cập nhật mỗi 1 giây
 
-# ==========================================
-# 5. GIAO DIỆN WEB (GOM CẢ 2)
-# ==========================================
+
 css_style = """
 .gradio-container {background-color: #111827} 
 h1 {color: #10b981; text-align: center}
@@ -256,7 +238,7 @@ with gr.Blocks(title="IoT Fire & Cam", css=css_style, theme=gr.themes.Soft()) as
     
     gr.Markdown("# 🔥 HỆ THỐNG GIÁM SÁT AN NINH & PCCC")
 
-    # --- KHU VỰC 1: ĐĂNG NHẬP ---
+ 
     with gr.Column(visible=True, elem_classes="login-box") as login_col:
         gr.Markdown("### 🔒 Xác thực danh tính")
         email_input = gr.Textbox(label="Nhập Email", placeholder="example@gmail.com")
@@ -267,27 +249,26 @@ with gr.Blocks(title="IoT Fire & Cam", css=css_style, theme=gr.themes.Soft()) as
         btn_login = gr.Button("🚀 Đăng nhập", variant="primary")
         login_msg = gr.Markdown("") 
 
-    # --- KHU VỰC 2: DASHBOARD (CAMERA + CẢM BIẾN) ---
+   
     with gr.Column(visible=False) as camera_col:
         with gr.Row():
             btn_logout = gr.Button("Đăng xuất")
         
-        # 1. Hiển thị Trạng thái lửa (Ưu tiên đưa lên đầu)
+      
         gr.Markdown("### 🌡️ GIÁM SÁT CẢM BIẾN LỬA")
         fire_display = gr.HTML(label="Trạng thái lửa")
         
-        # 2. Hiển thị Camera
+     
         gr.Markdown("### 🎥 Camera Trực Tiếp")
         video_display = gr.Image(label="Live Stream", streaming=True)
         
-        # --- KÍCH HOẠT CÁC LUỒNG DỮ LIỆU ---
-        # Load Stream Camera
+      
         demo.load(stream_loop, inputs=None, outputs=video_display)
         
-        # Load Trạng thái cảm biến (Chạy song song)
+       
         demo.load(check_fire_status, inputs=None, outputs=fire_display)
 
-    # --- SỰ KIỆN NÚT BẤM ---
+  
     btn_send_otp.click(fn=send_otp, inputs=email_input, outputs=otp_msg)
     
     btn_login.click(
@@ -305,6 +286,6 @@ with gr.Blocks(title="IoT Fire & Cam", css=css_style, theme=gr.themes.Soft()) as
 if __name__ == "__main__":
     start_ngrok()
     print("🚀 Đang khởi động Server Gradio (Port 7860)...")
-    # Cho phép truy cập từ mọi IP
+   
     demo.queue().launch(server_name="0.0.0.0", server_port=7860, show_error=True)
 
